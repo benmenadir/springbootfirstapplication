@@ -9,6 +9,8 @@ import javax.validation.Valid;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.propertyeditors.CustomDateEditor;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.validation.BindingResult;
@@ -17,7 +19,7 @@ import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.SessionAttributes;
+
 
 import com.myapp.springboot.model.Todo;
 import com.myapp.springboot.service.TodoService;
@@ -26,7 +28,6 @@ import com.myapp.springboot.service.TodoService;
 
 
 @Controller
-@SessionAttributes("name")
 public class TodoController {
 	
 	@Autowired
@@ -41,15 +42,25 @@ public class TodoController {
 	}
 	
 	@RequestMapping(value="/list-todos", method=RequestMethod.GET)
-	public String showListTodos(ModelMap model) {
-		String name = (String) model.get("name"); 
+	public String showTodos(ModelMap model) {
+		String name = getLoggedInUserName(); 
 		model.put("todos", service.retrieveTodos(name));
 		return "list-todos";
+	}
+
+	private String getLoggedInUserName() {
+		Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+		
+		if (principal instanceof UserDetails) {
+			return ((UserDetails)principal).getUsername();
+		} 
+		
+		return principal.toString();
 	}
 	
 	@RequestMapping(value="/add-todo", method=RequestMethod.GET)
 	public String showAddTodoPage(ModelMap model) {
-		Todo todo = new Todo(0,(String) model.get("name"),"Default Desc",new Date(), false);
+		Todo todo = new Todo(0,getLoggedInUserName(),"Default Desc",new Date(), false);
 		model.addAttribute("todo", todo);
 		return "todo";
 	}
@@ -59,7 +70,7 @@ public class TodoController {
 		if (result.hasErrors()) {
 			return "todo";
 		}
-		service.addTodo((String) model.get("name"), todo.getDesc(), new Date(), false);
+		service.addTodo(getLoggedInUserName(), todo.getDesc(), new Date(), false);
 		model.clear();
 		return "redirect:/list-todos";
 	}
@@ -80,7 +91,7 @@ public class TodoController {
 		if (result.hasErrors()) {
 			return "todo";
 		}
-		todo.setUser((String) model.get("name"));
+		todo.setUser(getLoggedInUserName());
 		service.updateTodo(todo);
 		return "redirect:/list-todos";
 	}
